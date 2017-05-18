@@ -1,7 +1,7 @@
-﻿# coding=utf-8
+# coding=utf-8
 # !/usr/bin/python
 '''
-INFO:
+INFO: This code was used for tweet classification work of FIRE2016 dataset.
 DESC:
 script options
 --------------
@@ -124,7 +124,6 @@ def preprocess(s,lowercase=False):
 
 def parse_tweet(tweet):
     # print("Method: parse_tweet(tweet)")
-    # print(tweet)
     stop=stopwords.words('english') + list(string.punctuation) + ['rt','via','& amp']
     tweet=re.sub(r"http\S+","urlurl",tweet) # replaces hyperlink with urlurl
     terms=preprocess(tweet,True)
@@ -133,7 +132,6 @@ def parse_tweet(tweet):
         terms[term_pos]=terms[term_pos].replace("#","")
         terms[term_pos]=get_acronyms(terms[term_pos])
         terms[term_pos]=contains_phone(terms[term_pos])
-        #TODO: pre-process the acronym
     mod_tweet=" ".join([term for term in terms if term not in stop])
     return mod_tweet
 
@@ -275,15 +273,20 @@ def most_freq_words(corpus,k_most_common):
     return FreqDist(corpus).most_common(k_most_common)
 
 def tf(word,blob):
+    '''computes "term frequency" which is the number of times a word appears in a document blob,
+    normalized by dividing by the total number of words in blob.'''
     return blob.words.count(word) / len(blob.words)
 
 def n_containing(word,bloblist):
+    '''number of documents containing word'''
     return sum(1 for blob in bloblist if word in blob)
 
 def idf(word,bloblist):
+    '''computes "inverse document frequency" which measures how common a word is among all documents in bloblist. The more common a word is, the lower its idf'''
     return math.log(len(bloblist) / (1 + n_containing(word,bloblist)))
 
 def tfidf(word,blob,bloblist):
+    '''computes the TF-IDF score. It is simply the product of tf and idf'''
     return tf(word,blob) * idf(word,bloblist)
 
 def get_cosine(tweet1,tweet2):
@@ -335,61 +338,6 @@ def create_tf_idf(train,test,n_gram):
     test_tfidf_matrix =tfidf_vectorizer.transform([vals["parsed_tweet"] for twt_id,vals in test.items()])
     return train_tfidf_matrix,test_tfidf_matrix
 
-def create_class_cluster_matrix(train,n_classes,n_clusters):
-    print("Method: create_class_cluster_matrix(train,n_clusters)")
-    matrix=[[0 for x in range(n_clusters)] for y in range(7)]
-    for cls_no in range(0,n_classes):
-        for clst_no in range(0,n_clusters):
-            matrix [cls_no][clst_no]=[tweet_obj.cluster_no for tweet_obj in train if tweet_obj.class_no == cls_no].count(clst_no) / \
-            len([tweet_obj.id for tweet_obj in train if tweet_obj.cluster_no == clst_no])
-            print("cls_no= ",cls_no," clst_no= ",clst_no," match: ",[tweet_obj.cluster_no for tweet_obj in train if tweet_obj.class_no == cls_no].count(clst_no)," cluster_count: ",len([tweet_obj.id for tweet_obj in train if tweet_obj.cluster_no == clst_no])," Weight: ",[tweet_obj.cluster_no for tweet_obj in train if tweet_obj.class_no == cls_no].count(clst_no) / len([tweet_obj.id for tweet_obj in train if tweet_obj.cluster_no == clst_no]))
-    return matrix
-
-# Unsupervised--------------------------------------------------------------------------------------
-def kmeans_fit(W,n_clusters):
-    print("Method: kmeans_fit(W)")
-    kmeans=cluster.KMeans(n_clusters=n_clusters)
-    kmeans.fit(W)
-    kmeans_pred_labels=kmeans.predict(W)
-    for clus_no in range (1,n_clusters):
-        print("K-Means Cluster points %d: "%clus_no)
-        print(len(np.where(kmeans_pred_labels == clus_no)[0]))
-        print(np.where(kmeans_pred_labels == clus_no)[0])
-    return kmeans
-
-def kmeans_predict(k,centroids_t):
-    print("Method: kmeans_predict(k,centroids_t)")
-    indices=[]
-    k_smallest=[]
-    for tweet in centroids_t:
-        k_smallest=heapq.nsmallest(k,tweet)
-        k_smallest_indices=[]
-        for k_small in k_smallest:
-            k_smallest_indices.append(np.where(tweet == k_small))
-        indices.append(k_smallest_indices)
-    return indices
-
-def spectral(W,n_clusters):
-    print("Method: spectral(W)")
-    global id_cluster
-    global id_tweets_sliced
-    global labeled_id_tweets
-    spectral_clusters=cluster.spectral_clustering(W,n_clusters=n_clusters,eigen_solver='arpack')
-    for clus_no in range (0,n_clusters):
-        print("Spectral Cluster points %d: "%clus_no)
-        print(len(np.where(spectral_clusters == clus_no)[0]))
-        print(np.where(spectral_clusters == clus_no)[0])
-    return spectral_clusters
-
-def lda(W,n_clusters):
-    print("Method: lda(W,n_clusters)")
-    from gensim import corpora,models
-
-def lsh(W,n_clusters):
-    print("Method: lsh(W,n_clusters)")
-    from sklearn.neighbors import LSHForest
-    LSHForest(random_state=42).fit(W)
-
 # Supervised----------------------------------------------------------------------------------------
 def supervised(train,test,train_tfidf_matrix,test_tfidf_matrix):
     print("Method: supervised(train,test,train_tfidf_matrix,test_tfidf_matrix)")
@@ -414,31 +362,6 @@ def supervised(train,test,train_tfidf_matrix,test_tfidf_matrix):
     train_labels=[vals["classes"] for id,vals in train.items()]
     train_labels_bin=mlb.fit_transform(train_labels)
     test_labels=[vals["classes"] for id,vals in test.items()]
-
-    # print("\nAlgorithm: \t \t \t PassiveAggressiveClassifier")
-    # PassiveAggressiveClassifier =OneVsRestClassifier(PassiveAggressiveClassifier()).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
-    # accuracy_multi(test,test_labels,mlb.inverse_transform(PassiveAggressiveClassifier))
-    # result["PassiveAggressiveClassifier"]=sklearn_metrics(mlb.fit_transform(test_labels),PassiveAggressiveClassifier)
-
-    # print("\nAlgorithm: \t \t \t SGDClassifier")
-    # SGDClassifier =OneVsRestClassifier(SGDClassifier()).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
-    # accuracy_multi(test,test_labels,mlb.inverse_transform(SGDClassifier))
-    # result["SGDClassifier"]=sklearn_metrics(mlb.fit_transform(test_labels),SGDClassifier)
-
-    # print("\nAlgorithm: \t \t \t Perceptron")
-    # Perceptron =OneVsRestClassifier(Perceptron()).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
-    # accuracy_multi(test,test_labels,mlb.inverse_transform(Perceptron))
-    # result["Perceptron"]=sklearn_metrics(mlb.fit_transform(test_labels),Perceptron)
-
-    # print("\nAlgorithm: \t \t \t KNeighborsClassifier")
-    # KNeighborsClassifier =OneVsRestClassifier(KNeighborsClassifier(n_neighbors=10)).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
-    # accuracy_multi(test,test_labels,mlb.inverse_transform(KNeighborsClassifier))
-    # result["KNeighborsClassifier"]=sklearn_metrics(mlb.fit_transform(test_labels),KNeighborsClassifier)
-
-    # print("\nAlgorithm: \t \t \t Naive_Bayes_Multinomial")
-    # naive_bayes_m =OneVsRestClassifier(MultinomialNB()).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
-    # accuracy_multi(test,test_labels,mlb.inverse_transform(naive_bayes_m))
-    # result["Naive_Bayes_Multinomial"]=sklearn_metrics(mlb.fit_transform(test_labels),naive_bayes_m)
 
     print("\nAlgorithm: \t \t \t Adaboost")
     Adaboost =OneVsRestClassifier(AdaBoostClassifier(n_estimators=50)).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
@@ -465,15 +388,15 @@ def supervised(train,test,train_tfidf_matrix,test_tfidf_matrix):
     # accuracy_multi(test,test_labels,mlb.inverse_transform(Adaboost_SVM))
     # result["Adaboost_SVM"]=sklearn_metrics(mlb.fit_transform(test_labels),Adaboost_SVM)
 
-    # print("\nAlgorithm: \t \t \t Random_Forest")
-    # Random_Forest =RandomForestClassifier().fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
-    # accuracy_multi(test,test_labels,mlb.inverse_transform(Random_Forest))
-    # result["Random_Forest"]=sklearn_metrics(mlb.fit_transform(test_labels),Random_Forest)
+    print("\nAlgorithm: \t \t \t Random_Forest")
+    Random_Forest =RandomForestClassifier().fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
+    accuracy_multi(test,test_labels,mlb.inverse_transform(Random_Forest))
+    result["Random_Forest"]=sklearn_metrics(mlb.fit_transform(test_labels),Random_Forest)
 
-    # print("\nAlgorithm: \t \t \t Gradient_Boosting")
-    # Gradient_Boosting=OneVsRestClassifier(GradientBoostingClassifier()).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
-    # accuracy_multi(test,test_labels,mlb.inverse_transform(Gradient_Boosting))
-    # result["Gradient_Boosting"]=sklearn_metrics(mlb.fit_transform(test_labels),Gradient_Boosting)
+    print("\nAlgorithm: \t \t \t Gradient_Boosting")
+    Gradient_Boosting=OneVsRestClassifier(GradientBoostingClassifier()).fit(train_tfidf_matrix,train_labels_bin).predict(test_tfidf_matrix)
+    accuracy_multi(test,test_labels,mlb.inverse_transform(Gradient_Boosting))
+    result["Gradient_Boosting"]=sklearn_metrics(mlb.fit_transform(test_labels),Gradient_Boosting)
 
     return result
 
@@ -496,22 +419,18 @@ def sklearn_metrics(actual,predicted):
     results["recall_micro"] = recall_score(actual,predicted,average='micro')
     results["f1_macro"] = f1_score(actual,predicted,average='macro')
     results["f1_micro"] = f1_score(actual,predicted,average='micro')
-    results["precision"] = precision_recall_fscore_support(actual,predicted)[0].tolist()
-    results["recall"] = precision_recall_fscore_support(actual,predicted)[1].tolist()
-    results["f1"] = precision_recall_fscore_support(actual,predicted)[2].tolist()
+    results["Precision"] = precision_recall_fscore_support(actual,predicted)[0].tolist()
+    results["Recall"] = precision_recall_fscore_support(actual,predicted)[1].tolist()
+    results["F1"] = precision_recall_fscore_support(actual,predicted)[2].tolist()
 
     from termcolor import colored, cprint
-    # text = colored('accuracy_score: ', 'green', attrs=['blink'])
     text = 'accuracy_score: '
-    print(text,'\x1b[1;31m',results["accuracy"],'\x1b[0m')
+    print(text,results["accuracy"])
     print("\t\t\t Macro,\t\t\t Micro")
     print("\t\t\t -----,\t\t\t -----")
-    print("precision:\t\t",results["precision_macro"],"\t",results["precision_micro"])
-    print("recall:\t\t\t",results["recall_macro"],"\t",results["recall_micro"])
+    print("Precision:\t\t",results["precision_macro"],"\t",results["precision_micro"])
+    print("Recall:\t\t\t",results["recall_macro"],"\t",results["recall_micro"])
     print("f1:\t\t\t",results["f1_macro"],"\t",results["f1_micro"])
-    # print("precision: ",results["precision"])
-    # print("recall: ",results["recall"])
-    # print("f1: ",results["f1"])
     print(classification_report(y_true=actual,y_pred=predicted,target_names=class_names,digits=4))
     print("\n")
     return results
@@ -545,43 +464,6 @@ def split_data(lab_tweets,test_size):
     for id in test_split:
         test[id]=lab_tweets[id]
     return train,test
-
-def feature_selection(train,test,train_matrix,test_matrix):
-    print("Method: feature_selection(train,test,train_matrix,test_matrix)")
-    # from sklearn.preprocessing import MultiLabelBinarizer
-    # mlb=MultiLabelBinarizer()
-    train_labels=[vals["classes"][0] for id,vals in train.items()]
-    # train_labels_bin=mlb.fit_transform(train_labels)
-    from sklearn.feature_selection import SelectPercentile
-    sel = SelectPercentile(percentile=20)
-    train_matrix_vt=sel.fit_transform(train_matrix,train_labels)
-    test_matrix_vt=sel.transform(test_matrix)
-    print(train_matrix_vt.shape)
-    print(test_matrix_vt.shape)
-
-def use_pca(train,test,train_matrix,test_matrix,pca_increment=200,add_features=True):
-    '''Computer PCA on tf-idf matrices'''
-    print("Method: use_pca(train,test,train_matrix,test_matrix,pca_increment=200,add_features=True)")
-    from sklearn.decomposition import PCA
-    pca_result = OrderedDict() # to store the results
-    run_n=int(train_matrix.shape[1]/pca_increment)
-    for i in range(run_n):
-        if i == (run_n-1):
-            print("Feature_count (all): ",train_matrix.shape[1])
-            pca_result[train_matrix.shape[1]]=supervised(train,test,train_matrix,test_matrix)
-            break
-        n_features=(i+1) * pca_increment
-        print("Feature_count: ", n_features)
-        pca = PCA(n_components=n_features)
-        train_matrix_pca=pca.fit_transform(train_matrix)
-        test_matrix_pca=pca.transform(test_matrix)
-        if add_features: # add extra features to the matrix
-            train_features=add_features_matrix(train,train_matrix_pca)
-            test_features=add_features_matrix(test,test_matrix_pca)
-            pca_result[n_features]=supervised(train,test,train_features,test_features)
-        else: # run algos only on tf-idf
-            pca_result[n_features]=supervised(train,test,train_matrix_pca,test_matrix_pca)
-    return pca_result
 
 def add_features_matrix(train,train_matrix,manual=False,length=True):
     print("Method: add_features_matrix(train,train_matrix,lengths=False)")
@@ -647,17 +529,17 @@ def add_features_matrix(train,train_matrix,manual=False,length=True):
 
 from plotly.graph_objs import *
 import plotly.plotly as py
-def plot(results, iter):
+def plot(results, iter, username, key):
     print("Method: plot(results, iter)")
 
-    py.sign_in('samujjwal86', 'U3gIQsZHKYNN5q3fqKF0')
+    py.sign_in(username, key)
 
-    metrics = ['precision', 'recall', 'f1']
+    metrics = ['Precision', 'Recall', 'F1']
     for index,metric in enumerate(metrics):
         class_values = []
         for algo,values in results.items():
             class_values.append({
-              "x": class_names,
+              "x": ["1","2","3","4","5","6","7",],
               "y": values[metric],
               "name": algo,
               "type": "bar",
@@ -665,125 +547,60 @@ def plot(results, iter):
               "yaxis": "y",
             })
         data = Data(class_values)
+        
         layout = {
-          "barmode": "group",
-          "dragmode": "zoom",
-          "hovermode": "closest",
-          "margin": {
-            "t": 40,
-            "b": 110
-          },
-          "showlegend": True,
-          "title": metric+'_'+iter,
-          "xaxis": {
-            "anchor": "y",
-            "autorange": False,
-            "domain": [-1, 1],
-            "fixedrange": False,
-            "nticks": 1,
-            "range": [-1, 8],
-            "showgrid": False,
-            "showline": False,
-            "showticklabels": False,
-            "ticks": "",
-            "title": "<b>Classes</b>",
-            "type": "-",
-            "zeroline": False
-          },
-          "yaxis": {
-            "anchor": "x",
-            "autorange": False,
-            "range": [0, 1],
-            "showgrid": False,
-            "ticks": "",
-            "title": "<b>Values</b>",
-            "type": "linear",
-            "zeroline": False
+            "autosize": True, 
+            "barmode": "group",
+            "dragmode": "zoom",
+            "hovermode": "x",
+            "legend": {"orientation": "h"},
+            "margin": {
+                "t": 40,
+                "b": 110
+            },
+            "showlegend": True,
+            "title": metric,
+            "xaxis": {
+                "anchor": "y",
+                "autorange": True,
+                "domain": [-1, 1],
+                "dtick": 1, 
+                "exponentformat": "none", 
+                "fixedrange": False,
+                "nticks": 1,
+                "range": [-0.5, 6.5],
+                "showgrid": False,
+                "showline": False,
+                "showticklabels": True,
+                "ticks": "",
+                "title": "<b>Classes</b>",
+                "type": "category",
+                "zeroline": False
+            },
+            "yaxis": {
+                "anchor": "x",
+                "autorange": True, 
+                "dtick": 0.05, 
+                "range": [0, 1],
+                "showgrid": False,
+                "tick0": 0, 
+                "tickangle": "auto", 
+                "tickmode": "linear", 
+                "tickprefix": "", 
+                "ticks": "",
+                "title": "<b>Values</b>",
+                "type": "linear",
+                "zeroline": False
           },
         }
-        fig = Figure(data=data, layout=layout)
-        ## plot_url = py.plot(fig)
-        filename=metric+'_'+iter+'.png'
+        fig = Figure(data=data, layout=layout)        
+        filename=metric+'_'+iter
         print(filename)
-        py.image.save_as(fig, filename=filename)
-
-def tables():
-    print("Method: tables(results_all)")
-    import plotly.plotly as py
-    from plotly.tools import FigureFactory as ff
-    py.sign_in('samujjwal86', 'U3gIQsZHKYNN5q3fqKF0')
-
-    metric_matrix = [["Precision_1","Naive_Bayes_Gaussian","SVM_Linear","Decision_Tree","Adaboost"],
-                   ['tf-idf', 0.68862275, 0.82978723, 0.61797753, 0.67469879],
-                   ['tf-idf + features', 0.68862275, 0.83098592, 0.71830986, 0.74011299],
-                   ['tf-idf + features + lengths', 0.68862275, 0.82394366, 0.71612903, 0.74011299]]
-    table = ff.create_table(metric_matrix, index=True)
-    # plot_url = py.plot(table, filename='Precision_1')
-    py.image.save_as(table, filename='Precision_1.png')
-
-    metric_matrix = [["Precision_2","Naive_Bayes_Gaussian","SVM_Linear","Decision_Tree","Adaboost"],
-                   ['tf-idf', 0.7291666666666666, 0.8857142857142857, 0.8, 0.7816091954022989],
-                   ['tf-idf + features', 0.7291666666666666, 0.88, 0.7209302325581395, 0.7654320987654321],
-                   ['tf-idf + features + lengths', 0.7291666666666666, 0.8783783783783784, 0.7530864197530864, 0.7654320987654321]]
-    table = ff.create_table(metric_matrix, index=True)
-    # plot_url = py.plot(table, filename='Precision_2')
-    py.image.save_as(table, filename='Precision_2.png')
-
-    metric_matrix = [["Precision_3","Naive_Bayes_Gaussian","SVM_Linear","Decision_Tree","Adaboost"],
-                   ['tf-idf', 0.6753246753246753, 0.8314606741573034, 0.7472527472527473, 0.7238095238095238],
-                   ['tf-idf + features', 0.6753246753246753, 0.8085106382978723, 0.660377358490566, 0.719626168224299],
-                   ['tf-idf + features + lengths', 0.6753246753246753, 0.7572815533980582, 0.673469387755102, 0.7181818181818181]]
-    table = ff.create_table(metric_matrix, index=True)
-    # plot_url = py.plot(table, filename='Precision_3')
-    py.image.save_as(table, filename='Precision_3.png')
-
-    metric_matrix = [["Precision_4","Naive_Bayes_Gaussian","SVM_Linear","Decision_Tree","Adaboost"],
-                   ['tf-idf', 0.5, 0.75, 0.48, 0.55],
-                   ['tf-idf + features', 0.5, 0.6, 0.32, 0.35294117647058826],
-                   ['tf-idf + features + lengths', 0.5, 0.6, 0.37037037037037035, 0.35294117647058826]]
-    table = ff.create_table(metric_matrix, index=True)
-    # plot_url = py.plot(table, filename='Precision_4')
-    py.image.save_as(table, filename='Precision_4.png')
-
-    metric_matrix = [["Precision_5","Naive_Bayes_Gaussian","SVM_Linear","Decision_Tree","Adaboost"],
-                   ['tf-idf', 0.5666666666666667, 0.95, 0.32608695652173914, 0.45454545454545453],
-                   ['tf-idf + features', 0.5666666666666667, 0.8695652173913043, 0.4186046511627907, 0.4358974358974359],
-                   ['tf-idf + features + lengths', 0.5666666666666667, 0.8333333333333334, 0.44, 0.40384615384615385]]
-    table = ff.create_table(metric_matrix, index=True)
-    # plot_url = py.plot(table, filename='Precision_5')
-    py.image.save_as(table, filename='Precision_5.png')
-
-    metric_matrix = [["Precision_6","Naive_Bayes_Gaussian","SVM_Linear","Decision_Tree","Adaboost"],
-                   ['tf-idf', 0.5730337078651685, 0.6103896103896104, 0.4144144144144144, 0.5353535353535354],
-                   ['tf-idf + features', 0.5730337078651685, 0.5833333333333334, 0.45544554455445546, 0.5463917525773195],
-                   ['tf-idf + features + lengths', 0.5730337078651685, 0.5764705882352941, 0.4224137931034483, 0.4789915966386555]]
-    table = ff.create_table(metric_matrix, index=True)
-    # plot_url = py.plot(table, filename='Precision_6')
-    py.image.save_as(table, filename='Precision_6.png')
-
-    metric_matrix = [["Precision_7","Naive_Bayes_Gaussian","SVM_Linear","Decision_Tree","Adaboost"],
-                   ['tf-idf', 0.9387755102040817, 0.9818181818181818, 0.5888888888888889, 0.8620689655172413],
-                   ['tf-idf + features', 0.9387755102040817, 0.9, 0.8208955223880597, 0.8142857142857143],
-                   ['tf-idf + features + lengths', 0.9387755102040817, 0.9152542372881356, 0.8181818181818182, 0.8461538461538461]]
-    table = ff.create_table(metric_matrix, index=True)
-    # plot_url = py.plot(table, filename='Precision_7')
-    py.image.save_as(table, filename='Precision_7.png')
-
-    # metrics = ['Precision', 'Recall', 'F1']
-
-    # for cls in range(n_classes):
-        # for i,metric in enumerate(metrics):
-            # m_vals = [[0 for x in range(n_clusters)] for y in range(7)]
-            # for fset,values in results_all.items():
-                # for algo,vals in values.items():
-                    # algos = values.keys()
-                        # m_vals[fset].append(vals["precision_recall_fscore_support"][cls])
-                # metric_matrix = [[metric+algos],
-                               # [fset, m_vals],]
-
-        # table = ff.create_table(metric_matrix, index=True)
-        #### plot_url = py.plot(table, filename='simple_table.png')
-        # py.image.save_as(table, filename=str(cls)+metric+'_table.png')
+        try:
+            py.image.save_as(fig, filename=filename+'.png')
+            plot_url = py.plot(fig,filename= metric)
+        except Exception as e:
+            print("Could not plot graph. Failure reason: ",e)
 
 def features(train,test):
     sim_vals_train=k_similar_tweets(train,train,k_similar)
@@ -813,21 +630,16 @@ def main():
     print("Method: main()")
     algo_list=["Adaboost","Decision_Tree","Gradient_Boosting","Naive_Bayes_Gaussian","Random_Forest","SVM_Linear"]
 
-    # pca_increment=200
-    # test_size =0.3
-    # lab_tweets=read_json('labelled_tweets')
-    # train,test=split_data(lab_tweets,test_size)
-    # print("train size:",len(train))
-    # print("test size:",len(test))
-
-    train=read_json('labelled_tweets_train')
-    test=read_json('labelled_tweets_test')
-
-    train = parse_tweets(train)
-    test = parse_tweets(test)
+    test_size=0.3 # portion of the data to be used in test
+    username = '' # plotly username
+    key      = '' # plotly key
     
-    # train count: [401, 210, 231, 75, 135, 252, 178]
-
+    lab_tweets=read_json('labelled_tweets')
+    lab_tweets= parse_tweets(lab_tweets)
+    train,test=split_data(lab_tweets,test_size)
+    print("train size:",len(train))
+    print("test size:",len(test))
+    
     train_tfidf_matrix_1,test_tfidf_matrix_1=create_tf_idf(train,test,1)
     train_tfidf_matrix_1 = train_tfidf_matrix_1.todense()
     test_tfidf_matrix_1 = test_tfidf_matrix_1.todense()
@@ -835,72 +647,60 @@ def main():
     train_tfidf_matrix_2 = train_tfidf_matrix_2.todense()
     test_tfidf_matrix_2 = test_tfidf_matrix_2.todense()
 
-    ## feature selection and PCA
-    ## feature_selection(train,test,train_tfidf_matrix,test_tfidf_matrix)
-
-    ## results=use_pca(train,test,train_tfidf_matrix,test_tfidf_matrix,pca_increment, False)
-    ## print(results)
-    ## features_result=use_pca(train,test,train_features,test_features,pca_increment)
-    ## print(features_result)
-
     ## 1. tf-idf
-    unigram = supervised(train,test,train_tfidf_matrix_1,test_tfidf_matrix_1)
-    save_json(unigram,"fs1_unigram")
+    fs1_unigram = supervised(train,test,train_tfidf_matrix_1,test_tfidf_matrix_1)
+    save_json(fs1_unigram,"fs1_unigram")
+    plot(fs1_unigram, "fs1_unigram" ,username, key)
 
     ## 2. tf-idf + bigrams
-    bigrams = supervised(train,test,train_tfidf_matrix_2,test_tfidf_matrix_2)
-    save_json(bigrams,"fs2_bigrams")
+    fs2_bigrams = supervised(train,test,train_tfidf_matrix_2,test_tfidf_matrix_2)
+    save_json(fs2_bigrams,"fs2_bigrams")
+    plot(fs2_bigrams, "fs2_bigrams" ,username, key)
 
     ## features
     features(train,test)
 
     ## 3. unigrams + features
-    # train_tf_idf1_manual=add_features_matrix(train,train_tfidf_matrix_1,manual=True)
-    # test_tf_idf1_manual=add_features_matrix(test,test_tfidf_matrix_1,manual=True)
-    # manual_1 =  supervised(train,test,train_tf_idf1_manual,test_tf_idf1_manual)
-    # save_json(manual_1,"fs3_manual_1")
+    train_tf_idf1_manual=add_features_matrix(train,train_tfidf_matrix_1,manual=True)
+    test_tf_idf1_manual=add_features_matrix(test,test_tfidf_matrix_1,manual=True)
+    fs3_manual_1 =  supervised(train,test,train_tf_idf1_manual,test_tf_idf1_manual)
+    save_json(fs3_manual_1,"fs3_manual_1")
+    plot(fs3_manual_1, "fs3_manual_1" ,username, key)
 
     ## 4. bigrams + manual
     train_tf_idf2_manual=add_features_matrix(train,train_tfidf_matrix_2,manual=True)
     test_tf_idf2_manual=add_features_matrix(test,test_tfidf_matrix_2,manual=True)
-    manual_2 =  supervised(train,test,train_tf_idf2_manual,test_tf_idf2_manual)
-    save_json(manual_2,"fs4_manual_2")
+    fs4_manual_2 =  supervised(train,test,train_tf_idf2_manual,test_tf_idf2_manual)
+    save_json(fs4_manual_2,"fs4_manual_2")
+    plot(fs4_manual_2, "fs4_manual_2" ,username, key)
 
     ## 4. unigrams + auto
     train_tf_idf1_auto=add_features_matrix(train,train_tfidf_matrix_1)
     test_tf_idf1_auto=add_features_matrix(test,test_tfidf_matrix_1)
-    auto_1 =  supervised(train,test,train_tf_idf1_auto,test_tf_idf1_auto)
-    save_json(auto_1,"fs5_auto_1")
+    fs5_auto_1 =  supervised(train,test,train_tf_idf1_auto,test_tf_idf1_auto)
+    save_json(fs5_auto_1,"fs5_auto_1")
+    plot(fs5_auto_1, "fs5_auto_1" ,username, key)
 
     ## 4. bigrams + auto
     train_tf_idf2_auto=add_features_matrix(train,train_tfidf_matrix_2)
     test_tf_idf2_auto=add_features_matrix(test,test_tfidf_matrix_2)
-    auto_2 =  supervised(train,test,train_tf_idf2_auto,test_tf_idf2_auto)
-    save_json(auto_2,"fs6_auto_2")
+    fs6_auto_2 =  supervised(train,test,train_tf_idf2_auto,test_tf_idf2_auto)
+    save_json(fs6_auto_2,"fs6_auto_2")
+    plot(fs6_auto_2, "fs6_auto_2" ,username, key)
 
     ## 4. unigrams + both
     train_tf_idf1_both=add_features_matrix(train,train_tf_idf1_auto,manual=True)
     test_tf_idf1_both=add_features_matrix(test,test_tf_idf1_auto,manual=True)
-    both_1 =  supervised(train,test,train_tf_idf1_both,test_tf_idf1_both)
-    save_json(both_1,"fs7_both_1")
+    fs7_both_1 =  supervised(train,test,train_tf_idf1_both,test_tf_idf1_both)
+    save_json(fs7_both_1,"fs7_both_1")
+    plot(fs7_both_1, "fs7_both_1" ,username, key)
     
     ## 4. bigrams + both
     train_tf_idf2_both=add_features_matrix(train,train_tf_idf2_auto,manual=True)
     test_tf_idf2_both=add_features_matrix(test,test_tf_idf2_auto,manual=True)
-    both_2 =  supervised(train,test,train_tf_idf2_both,test_tf_idf2_both)
-    save_json(both_2,"fs8_both_2")
-
-    ## 5. tf-idf + unigrams + features - lengths
-    train_tf_idf1_features_lengths=add_features_matrix(train,train_tf_idf1_manual,manual=True,length=False)
-    test_tf_idf1_features_lengths=add_features_matrix(test,test_tf_idf1_manual,manual=True,length=False)
-    fs9_both_1_length = supervised(train,test,train_tf_idf1_features_lengths,test_tf_idf1_features_lengths)
-    save_json(fs9_both_1_length,"fs9_both_1_length")
-    
-    ## 6. tf-idf + bigrams + features - lengths
-    train_tf_idf2_features_lengths=add_features_matrix(train,train_tf_idf2_manual,manual=True,length=False)
-    test_tf_idf2_features_lengths=add_features_matrix(test,test_tf_idf2_manual,manual=True,length=False)
-    fs10_both_2_length = supervised(train,test,train_tf_idf2_features_lengths,test_tf_idf2_features_lengths)
-    save_json(fs10_both_2_length,"fs10_both_2_length")
+    fs8_both_2 =  supervised(train,test,train_tf_idf2_both,test_tf_idf2_both)
+    save_json(fs8_both_2,"fs8_both_2")
+    plot(fs8_both_2, "fs8_both_2" ,username, key)
 
     ## save the input set for verification
     save_json(train,"train_mod")
